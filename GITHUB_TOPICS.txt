@@ -1,0 +1,14 @@
+Suggested GitHub repository topics (apply in repository settings):
+cpp
+cpp20
+terminal
+console
+ansi-colors
+cmake
+header-only
+formatting
+console-table
+progress-bar
+terminal-spinner
+terminal-ui
+rich-python-alternative

@@ -1,0 +1,11 @@
+/build/
+/cmake-build-*/
+/out/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+.DS_Store
+CMakeUserPresets.json
+*.pdb
+*.obj

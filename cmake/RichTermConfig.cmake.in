@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(Threads REQUIRED)
+include("${CMAKE_CURRENT_LIST_DIR}/RichTermTargets.cmake")
+check_required_components(RichTerm)
