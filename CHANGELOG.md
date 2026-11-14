@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — Panels, Unicode tables and richer console helpers
+
+- Added short BBCode closing tag `[/]` and a helper for escaping literal markup text.
+- Added UTF-8 decoding and terminal-cell width handling for common combining marks, East Asian wide characters and emoji sequences.
+- Added optional table width constraints, cell wrapping, and independently configurable row separator styling.
+- Added the `Panel` renderable with title, width, padding, alignment and style options.
+- Added `std::chrono` date/time and duration formatting helpers.
+- Added configurable Progress bar and pulse colors.
+- Added `Console::pause()` and interactive-terminal `Console::clear()`.
+- Added standalone examples for individual features and screenshot/GIF destination directories.
+- Updated version metadata, documentation and regression tests.
+
 ## 0.2.0 — Live terminal rendering and Windows UTF-8 fix
 
 - Fixed Windows console output encoding by switching real console handles to UTF-8 and enabling Virtual Terminal processing.

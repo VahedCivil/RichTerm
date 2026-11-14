@@ -30,6 +30,21 @@ inline std::string repeat_utf8(std::string_view glyph, std::size_t count) {
 
 using TaskId = std::size_t;
 
+inline std::string_view progress_color_name(Color color) noexcept {
+    switch (color) {
+        case Color::black: return "black"; case Color::red: return "red";
+        case Color::green: return "green"; case Color::yellow: return "yellow";
+        case Color::blue: return "blue"; case Color::magenta: return "magenta";
+        case Color::cyan: return "cyan"; case Color::white: return "white";
+        case Color::bright_black: return "bright_black"; case Color::bright_red: return "bright_red";
+        case Color::bright_green: return "bright_green"; case Color::bright_yellow: return "bright_yellow";
+        case Color::bright_blue: return "bright_blue"; case Color::bright_magenta: return "bright_magenta";
+        case Color::bright_cyan: return "bright_cyan"; case Color::bright_white: return "bright_white";
+        case Color::default_color: return "white";
+    }
+    return "green";
+}
+
 struct ProgressTask {
     TaskId id{};
     std::string description;
@@ -145,6 +160,8 @@ public:
     }
 
     [[nodiscard]] bool active() const noexcept { return active_.load(std::memory_order_acquire); }
+    void set_bar_color(Color color) noexcept { bar_color_.store(color, std::memory_order_relaxed); }
+    void set_pulse_color(Color color) noexcept { pulse_color_.store(color, std::memory_order_relaxed); }
 
 private:
     static std::chrono::milliseconds make_interval(double refresh_per_second) {
@@ -178,12 +195,14 @@ private:
                 ratio = (*task.total == 0.0)
                     ? 1.0 : std::clamp(task.completed / *task.total, 0.0, 1.0);
                 filled = static_cast<std::size_t>(std::round(ratio * static_cast<double>(bar_width_)));
-                output += "[green]" + repeat_utf8("━", filled) + "[/green]";
+                const auto bar_color = progress_color_name(bar_color_.load(std::memory_order_relaxed));
+                output += "[" + std::string(bar_color) + "]" + repeat_utf8("━", filled) + "[/" + std::string(bar_color) + "]";
                 output += "[bright_black]" + repeat_utf8("─", bar_width_ - filled) + "[/bright_black] ";
             } else {
                 const std::size_t pos = frame % bar_width_;
                 output += "[bright_black]" + repeat_utf8("─", pos) + "[/bright_black]";
-                output += "[bold cyan]" + std::string(pulse_glyphs[frame % pulse_glyphs.size()]) + "[/bold cyan]";
+                const auto pulse_color = progress_color_name(pulse_color_.load(std::memory_order_relaxed));
+                output += "[bold " + std::string(pulse_color) + "]" + std::string(pulse_glyphs[frame % pulse_glyphs.size()]) + "[/bold " + std::string(pulse_color) + "]";
                 output += "[bright_black]" + repeat_utf8("─", bar_width_ - pos - 1) + "[/bright_black] ";
             }
 
@@ -236,6 +255,8 @@ private:
 
     Console* console_;
     std::size_t bar_width_;
+    std::atomic<Color> bar_color_{Color::green};
+    std::atomic<Color> pulse_color_{Color::cyan};
     bool auto_refresh_;
     std::chrono::milliseconds refresh_interval_;
     mutable std::mutex tasks_mutex_;

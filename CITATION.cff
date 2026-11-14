@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use RichTerm in research or software, please cite this project."
 title: "RichTerm: A C++20 Terminal Presentation Library"
-version: 0.2.0
+version: 0.3.0
 license: MIT
 repository-code: "https://github.com/VahedCivil/RichTerm"
 keywords:

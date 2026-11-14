@@ -1,10 +1,13 @@
 #pragma once
 
 #include "format.hpp"
+#include "unicode.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <mutex>
@@ -13,6 +16,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <type_traits>
 #include <vector>
 #include <utility>
 
@@ -33,6 +38,7 @@
 namespace richterm {
 
 class Table;
+class Panel;
 
 struct ConsoleOptions {
     ColorMode color{ColorMode::automatic};
@@ -177,8 +183,14 @@ public:
             }
         };
         for (std::size_t i = 0; i < text.size();) {
+            if (text[i] == '\\' && i + 1 < text.size() && (text[i + 1] == '[' || text[i + 1] == ']')) {
+                plain += text[i + 1]; i += 2; continue;
+            }
             if (text[i] == '[' && i + 1 < text.size() && text[i + 1] == '[') {
                 plain += '['; i += 2; continue;
+            }
+            if (text[i] == ']' && i + 1 < text.size() && text[i + 1] == ']') {
+                plain += ']'; i += 2; continue;
             }
             if (text[i] != '[') { plain += text[i++]; continue; }
             const auto close = text.find(']', i + 1);
@@ -186,7 +198,7 @@ public:
             auto tag = text.substr(i + 1, close - i - 1);
             if (!tag.empty() && tag.front() == '/') {
                 const auto closing = tag.substr(1);
-                if (stack.size() > 1 && stack.back().tag == closing) {
+                if (stack.size() > 1 && (closing.empty() || stack.back().tag == closing)) {
                     flush(); stack.pop_back(); i = close + 1; continue;
                 }
                 plain.append(text.substr(i, close - i + 1)); i = close + 1; continue;
@@ -201,6 +213,45 @@ public:
         flush();
         // Unclosed opening tags are harmless: all spans were independently reset.
         return output;
+    }
+
+    [[nodiscard]] static std::string escape_markup(std::string_view text) {
+        std::string escaped;
+        escaped.reserve(text.size());
+        for (const char ch : text) {
+            if (ch == '[' || ch == ']') escaped += ch;
+            escaped += ch;
+        }
+        return escaped;
+    }
+
+    void pause(double seconds) const {
+        if (!std::isfinite(seconds) || seconds < 0.0)
+            throw std::invalid_argument("Pause duration must be finite and non-negative");
+        const long double maximum = std::chrono::duration<long double>{
+            std::chrono::steady_clock::duration::max()}.count();
+        if (static_cast<long double>(seconds) > maximum)
+            throw std::out_of_range("Pause duration exceeds the steady clock range");
+        std::this_thread::sleep_for(std::chrono::duration<double>{seconds});
+    }
+
+    template <typename Rep, typename Period>
+    void pause(std::chrono::duration<Rep, Period> duration) const {
+        const long double seconds = std::chrono::duration<long double>{duration}.count();
+        if (!std::isfinite(seconds) || seconds < 0.0L)
+            throw std::invalid_argument("Pause duration must be finite and non-negative");
+        const long double maximum = std::chrono::duration<long double>{
+            std::chrono::steady_clock::duration::max()}.count();
+        if (seconds > maximum)
+            throw std::out_of_range("Pause duration exceeds the steady clock range");
+        std::this_thread::sleep_for(duration);
+    }
+
+    void clear() {
+        if (!is_terminal()) return;
+        std::lock_guard<std::mutex> lock(output_mutex_);
+        *stream_ << "\x1b[2J\x1b[H";
+        stream_->flush();
     }
 
     void write(std::string_view text) {
@@ -219,6 +270,8 @@ public:
     void println(std::string_view text) { print(text); }
     void print(const Table& table);
     void println(const Table& table);
+    void print(const Panel& panel);
+    void println(const Panel& panel);
 
     void rule(std::string_view title = {}) {
         const std::size_t width = static_cast<std::size_t>(options_.width);
@@ -232,7 +285,7 @@ public:
             return;
         }
         const std::string label = " " + std::string(title) + " ";
-        const std::size_t label_width = label.size();
+        const std::size_t label_width = detail::utf8_width(label);
         const std::size_t remaining = width > label_width ? width - label_width : 2;
         const std::size_t left = remaining / 2;
         const std::size_t right = remaining - left;

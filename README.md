@@ -17,7 +17,9 @@ It is an independently implemented C++ library inspired by the user experience o
 - **Format strings** — automatic `{}` fields, escaped braces, numeric format specifications, alignment, fill, signs, zero padding, grouping, precision, integer bases, floating-point notation, and percentage output.
 - **BBCode-style markup** — nested tags such as `[bold cyan]...[/bold cyan]`, `[u]...[/u]`, `[i]...[/i]`, color names, and `on` background colors.
 - **Colorma-style tokens** — 16 standard/bright foreground colors, 16 backgrounds, bold, dim, italic, underline, reverse, strike, reset, and automatic/always/never color modes.
-- **Tables** — Unicode box drawing, aligned columns, numeric right alignment, header/caption/title, optional row separators, and row/header/border styles.
+- **Tables** — Unicode box drawing, terminal-cell-aware width measurement for common Unicode ranges, aligned columns, optional wrapping with a maximum width, header/caption/title, and independently styled borders and row separators.
+- **Panels** — titled bordered content blocks with configurable width, padding, alignment, and styles.
+- **Date and time** — `std::chrono`-based date/time formatting and human-readable duration formatting.
 - **Progress** — multiple tasks, determinate bars, indeterminate pulse animation, elapsed time, synchronized updates and live terminal refresh.
 - **Status** — animated Unicode spinner on interactive terminals, with readable log output when redirected.
 - **CMake package** — exported `RichTerm::RichTerm` target and installable headers.
@@ -29,7 +31,7 @@ RichTerm intentionally implements a focused subset of Rich's terminal-facing fea
 
 The following Rich features are **not included** in this release: Markdown rendering, Pygments syntax highlighting, tracebacks, full-screen live layouts, Jupyter integration, SVG/HTML export, emoji substitution, automatic layout/renderable protocols, and Rich's full theme/highlighter ecosystem. Progress and Status implement focused live terminal animations, not the complete Rich Live subsystem. These features would need additional subsystems or dependencies and are outside the current tested scope.
 
-The format engine follows a practical subset of Python's format mini-language and familiar C++ formatting conventions. It is not a full implementation of Python `str.format`, `std::format`, or the `{fmt}` library. Positional/named fields, locale-aware `n`, date/time formatting, and custom formatter specializations are not implemented.
+The format engine follows a practical subset of Python's format mini-language and familiar C++ formatting conventions. It is not a full implementation of Python `str.format`, `std::format`, or the `{fmt}` library. Positional/named fields, locale-aware `n`, and custom formatter specializations are not implemented. Date/time presentation is provided separately by the `datetime.hpp` helpers.
 
 ## Requirements
 
@@ -140,7 +142,7 @@ richterm::Console plain_console(std::cout, options);
 plain_console.print("[not markup]");
 ```
 
-Supported markup tags include `bold`, `dim`, `italic`/`i`, `underline`/`u`, `reverse`, `strike`, the 16 basic/bright color names, and background syntax such as `[black on bright_green]...[/black on bright_green]`. Nested tags are supported when they are closed in last-in, first-out order. `[[` prints a literal `[`.
+Supported markup tags include `bold`, `dim`, `italic`/`i`, `underline`/`u`, `reverse`, `strike`, the 16 basic/bright color names, and background syntax such as `[black on bright_green]...[/black on bright_green]`. Nested tags are supported when they are closed in last-in, first-out order. Use `[/]` to close the most recently opened tag. `[[` and `]]` escape literal square brackets, and `Console::escape_markup()` escapes both bracket characters in an input string.
 
 Automatic color mode emits ANSI only for recognized terminal streams and respects `NO_COLOR` and `TERM=dumb`. Use `ColorMode::always` to force ANSI or `ColorMode::never` to suppress it. On Windows, real console handles are switched to UTF-8 and Virtual Terminal mode is enabled. The exported CMake target passes `/utf-8` to MSVC consumers so Unicode box-drawing and spinner literals are compiled correctly.
 
@@ -215,7 +217,54 @@ table.add_column("Model")
 console.print(table);          // or console.print(table.render())
 ```
 
-Tables calculate widths from their headers and cell content, support left/center/right alignment, and use Unicode box drawing. The width calculation counts UTF-8 code points as one column; full East Asian wide-character and combining-mark terminal-cell measurement is not yet implemented. Cells are not automatically wrapped or cropped.
+Tables calculate widths using terminal-cell widths for common combining marks, East Asian wide/full-width characters, and emoji sequences. Set `Table::set_max_width()` to constrain the table and wrap cells; `set_line_style()` controls the color of row separator lines independently from the outer border. Unicode width handling is based on compact built-in ranges rather than a complete generated Unicode database, so unusual scripts and terminal-specific emoji presentation may still differ between terminals.
+
+## Panels
+
+```cpp
+richterm::Panel panel("This content wraps to fit the panel width.", "Build summary");
+panel.set_width(42).set_padding(1).set_border_style("bright_blue")
+     .set_title_style("bold yellow").set_alignment(richterm::Alignment::left);
+console.print(panel);
+```
+
+`Panel` supports a title, configurable total width, inner padding, content alignment, and separate border/title/content styles. If no width is set, the panel sizes itself to its content.
+
+## Date, time, and durations
+
+```cpp
+#include <chrono>
+
+const auto now = std::chrono::system_clock::now();
+console.print("Date: {}", richterm::format_date(now));
+console.print("Time: {}", richterm::format_time(now));
+console.print("Timestamp: {}", richterm::format_datetime(now, "%Y-%m-%d %H:%M:%S"));
+console.print("Elapsed: {}", richterm::format_duration(std::chrono::seconds{3661}));
+```
+
+The date/time helpers use the process local time zone and `std::put_time` format directives. `format_duration()` accepts standard chrono durations.
+
+## Console pause and clear
+
+```cpp
+console.print("Preparing...");
+console.pause(0.5); // seconds
+console.clear();     // clears an interactive terminal; no-op for redirected streams
+```
+
+`pause()` also accepts a `std::chrono::duration`. Negative or non-finite floating-point delays are rejected. `clear()` emits terminal control sequences only when the configured stream is an interactive terminal.
+
+## Progress color
+
+```cpp
+richterm::Progress progress(console);
+progress.set_bar_color(richterm::Color::bright_green);
+progress.set_pulse_color(richterm::Color::bright_cyan);
+```
+
+## Visual examples and media
+
+Each example is a separate source file under `examples/` and can be built/run independently. Store screenshots in `docs/images/` and animated terminal recordings in `docs/gifs/`; each directory contains a short naming guide. Suggested captures include the console, table, and panel examples, plus progress/status animations.
 
 ## Progress and status
 
@@ -248,12 +297,17 @@ RichTerm/
 │   └── richterm/
 │       ├── richterm.hpp     # umbrella include and version macros
 │       ├── console.hpp      # Console, markup parser, terminal detection
+│       ├── datetime.hpp     # std::chrono date/time and duration formatting
+│       ├── unicode.hpp      # UTF-8 decoding and terminal-cell width helpers
+│       ├── panel.hpp        # bordered content panels
 │       ├── format.hpp       # format engine and numeric presentation
 │       ├── style.hpp        # colors, ANSI styles, colorize helpers
 │       ├── table.hpp        # Unicode tables and cell alignment
 │       ├── progress.hpp     # live progress tasks and animated bars
 │       └── status.hpp       # animated status spinner and log fallback
-├── examples/                # end-to-end showcase
+├── examples/                # standalone examples for individual features
+├── docs/images/             # screenshot destination
+├── docs/gifs/               # animated demo destination
 ├── tests/                   # CTest regression tests
 ├── cmake/                   # package config template
 ├── docs/                    # API and format reference
@@ -271,7 +325,7 @@ Issues, bug reports, documentation fixes, tests, and focused feature contributio
 
 ## License
 
-RichTerm 0.2.0 is released under the MIT License. See [LICENSE](LICENSE).
+RichTerm 0.3.0 is released under the MIT License. See [LICENSE](LICENSE).
 
 ## Search keywords
 

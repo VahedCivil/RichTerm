@@ -7,7 +7,10 @@ RichTerm is a header-only C++20 library. `richterm.hpp` is the umbrella include.
 - **style.hpp** — strongly typed color/style tokens and ANSI SGR sequences.
 - **format.hpp** — validated automatic-field format parser; formatting completes in memory before Console commits output.
 - **console.hpp** — stream binding, terminal detection, ANSI policy, BBCode-like markup, UTF-8 Windows console initialization, serialized output and live line/frame rewriting.
-- **table.hpp** — cell storage, column sizing, alignment, box drawing and markup generation.
+- **table.hpp** — cell storage, Unicode terminal-cell sizing, wrapping, alignment, box drawing and markup generation.
+- **unicode.hpp** — UTF-8 decoding, compact terminal-width ranges, grapheme-aware width and wrapping helpers.
+- **panel.hpp** — bordered content rendering built on the table/text layout helpers.
+- **datetime.hpp** — local date/time and duration presentation using `std::chrono` and `std::put_time`.
 - **progress.hpp** — synchronized task state, determinate bars, indeterminate pulse animation and an optional refresh worker for TTY output.
 - **status.hpp** — animated spinner for TTYs and log-friendly output for redirected streams.
 
@@ -23,7 +26,7 @@ RichTerm is a header-only C++20 library. `richterm.hpp` is the umbrella include.
 ## Current limitations
 
 - The format grammar is a focused subset and does not support positional/named fields, locale-dependent formatting, dates or custom formatter registration.
-- String precision/alignment use byte counts. Table width counts UTF-8 code points as one column and does not implement East Asian width or grapheme-cluster rules.
-- Table cells do not wrap or crop automatically.
+- String precision/alignment use byte counts. Table width uses compact built-in Unicode ranges and grapheme grouping for common combining/emoji sequences; it is not a complete generated Unicode width database.
+- Table cell wrapping is opt-in through `set_max_width()`; width measurement uses compact built-in Unicode ranges and is not a complete implementation of the Unicode East Asian Width database.
 - Live rendering requires a terminal that supports ANSI cursor controls and a font with the required Unicode glyphs. Visual Studio's output pane and some embedded consoles may not provide a true TTY; use the integrated terminal or Windows Terminal.
 - The upstream Python Rich API is not fully replicated.

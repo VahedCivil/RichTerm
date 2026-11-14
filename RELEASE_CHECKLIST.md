@@ -1,18 +1,28 @@
-# GitHub publication checklist
+# GitHub publication checklist — RichTerm 0.3.0
 
-The repository `VahedCivil/RichTerm` was checked and was not found. No repository creation, push, tag, or GitHub Release was performed. The source tree includes a GitHub Actions workflow; it becomes active after the files are pushed to a newly created public repository.
+This checklist describes publication steps; no repository push, tag, or GitHub Release is performed by building the source archive.
 
-1. Create a public repository named **RichTerm** under the desired GitHub account.
-2. Extract the archive and upload/push the full project root, keeping the hidden `.github` directory and workflow files.
-3. Apply the suggested topics from `GITHUB_TOPICS.txt` in the repository settings.
-4. Open the repository's **Actions** tab and wait for the Windows, macOS, and Linux CI matrix to finish.
-5. On Windows, configure and test with the VS 2026 generator using CMake 4.2+:
+1. Confirm that the intended GitHub repository exists and that you have permission to push to it.
+2. Extract `RichTerm-0.3.0-source.zip` and inspect the complete project root, including the hidden `.github` directory.
+3. Review the final source diff, README examples, version metadata, changelog, license and release notes.
+4. Apply the repository topics listed in `GITHUB_TOPICS.txt`.
+5. Configure and build locally:
 
-   ```powershell
-   cmake -S . -B build-vs2026 -G "Visual Studio 18 2026" -A x64
-   cmake --build build-vs2026 --config Release --parallel
-   ctest --test-dir build-vs2026 -C Release --output-on-failure
+   ```bash
+   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build --config Release --parallel
+   ctest --test-dir build -C Release --output-on-failure
    ```
 
-6. Review terminal behavior on Windows Terminal and at least one POSIX terminal. In particular, verify Unicode table borders and color handling with redirected output.
-7. Only after CI and manual checks pass, create a version tag and publish a GitHub Release. The current `0.2.0` bundle is a development preview, not a claim of full Python Rich API parity.
+6. Push the source to the intended branch (for example, `main`) and wait for the GitHub Actions matrix (Linux, Windows and macOS; Debug and Release) to pass.
+7. Manually verify Windows Terminal UTF-8/ANSI rendering and at least one POSIX terminal. Also check redirected output.
+8. Only after CI and manual checks pass, create and push the version tag:
+
+   ```bash
+   git tag -a v0.3.0 -m "RichTerm 0.3.0"
+   git push origin v0.3.0
+   ```
+
+9. Create a GitHub Release for `v0.3.0`, attach the source ZIP, and summarize the changes from `CHANGELOG.md`.
+
+The project is a focused C++20 terminal library; this release does not claim full API parity with Python Rich. Windows visual behavior must be confirmed on a real Windows terminal before release publication.

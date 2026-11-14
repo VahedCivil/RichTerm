@@ -1,30 +1,36 @@
-# RichTerm 0.2.0 — Build and regression report
+# RichTerm 0.3.0 — Build and regression report
 
-## Repairs and enhancements
+## Implemented changes
 
-- Fixed Windows Unicode table/output handling: real standard console handles switch to UTF-8, Virtual Terminal Processing is enabled, and MSVC consumers inherit `/utf-8` from the CMake interface target.
-- Restricted Windows code-page/VT changes to `std::cout`, `std::cerr` and `std::clog`; custom string/file streams are not used to mutate console settings.
-- Serialized Console writes to prevent concurrent worker output from interleaving with ordinary RichTerm writes.
-- Implemented live animated Progress rendering on TTYs, with determinate bars, indeterminate pulse, elapsed time and a refresh worker.
-- Implemented live animated Status spinner on TTYs.
-- Retained non-interactive behavior: no cursor-control sequences for redirected streams; Progress writes initial/final snapshots and optional intermediate snapshots through `refresh()`, while Status emits log lines.
-- Added task synchronization, validated refresh rates, joined worker threads in `stop()`/destructors, and linked `Threads::Threads` transitively through the installed CMake package.
-- Updated the showcase, API documentation, Persian/English READMEs and release notes.
+- Added short BBCode closing tags (`[/]`) and literal markup escaping through `Console::escape_markup()`.
+- Added UTF-8 decoding and terminal-cell width estimation for common combining marks, East Asian wide characters, regional-indicator flags and emoji ZWJ sequences.
+- Added optional table maximum width, cell wrapping, and independently configurable row-separator styling.
+- Added the `Panel` renderable with title, width, padding, alignment and style controls.
+- Added `std::chrono` date/time and duration formatting helpers.
+- Added configurable determinate Progress bar and indeterminate pulse colors.
+- Added `Console::pause()` overloads and TTY-only `Console::clear()`.
+- Added standalone feature examples, screenshot/GIF destination directories, updated API/architecture documentation, and version metadata for 0.3.0.
 
 ## Validation results
 
 | Validation | Result |
 |---|---|
-| GCC 14.2, Debug, `-Werror` | PASS |
-| Clang 17, Release, `-Werror` | PASS |
-| CTest regression suite | PASS |
-| AddressSanitizer + UndefinedBehaviorSanitizer | PASS |
-| Interactive TTY smoke test | PASS — emitted 323 clear-line frames, 101 cursor-up operations, spinner and progress glyphs |
+| GCC 14.2, Release, examples and tests, `-Werror` | PASS |
+| Clang 17, Release, examples and tests, `-Werror` | PASS |
+| CTest regression suite | PASS (1/1) on both compilers |
+| AddressSanitizer + UndefinedBehaviorSanitizer, GCC 14.2 | PASS |
 | CMake install + separate `find_package(RichTerm)` consumer | PASS |
-| Build from extracted release ZIP | To be re-run on final archive before packaging |
+| Independent compilation of all public headers | PASS |
+| Final source ZIP extracted, built with GCC `-Werror`, and tested | PASS |
+| Windows/MSVC and macOS builds | Not run in this environment |
+| Interactive Windows terminal visual inspection | Not run |
 
-## Platform caveat
+The local build/test results above were run against the extracted 0.3.0 working tree. The GitHub Actions workflow remains responsible for the Windows/macOS CI matrix after publication.
 
-The code includes Windows UTF-8 and MSVC `/utf-8` fixes, but this environment cannot run the user's Visual Studio 2026/MSVC toolchain or visually inspect Windows Terminal. The included GitHub Actions workflow covers Windows, Linux and macOS once the project is pushed. Run the Windows CI job and inspect `richterm_showcase` in Windows Terminal or the VS Code integrated terminal before declaring Windows rendering fully verified.
+## Known limitations
 
-No software project can honestly be guaranteed to contain zero bugs. The known issues visible in the supplied screenshot have been addressed, and the validations above describe exactly what was tested.
+- Unicode width support uses compact internal ranges and grapheme grouping for common cases; it is not a complete generated Unicode East Asian Width implementation and may differ from terminal-specific emoji rendering.
+- Table wrapping is opt-in through `Table::set_max_width()`.
+- Date/time formatting uses the process local time zone; no arbitrary time-zone database integration is included.
+- `Console::clear()` intentionally does nothing for redirected streams.
+- Windows UTF-8/VT code is present but still requires real Windows/MSVC and terminal verification.

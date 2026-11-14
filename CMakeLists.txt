@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(RichTerm
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "A modular C++ terminal presentation library inspired by Rich and ColormaCpp"
     LANGUAGES CXX)
 

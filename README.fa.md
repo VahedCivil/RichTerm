@@ -1,4 +1,4 @@
-# RichTerm 0.2.0 — کتابخانهٔ قالب‌بندی و نمایش حرفه‌ای خروجی کنسول در C++
+# RichTerm 0.3.0 — کتابخانهٔ قالب‌بندی و نمایش حرفه‌ای خروجی کنسول در C++
 
 **RichTerm** یک کتابخانهٔ مستقل و ماژولار C++20 برای چاپ رنگی، قالب‌بندی رشته و اعداد، نشانه‌گذاری شبیه BBCode، جدول، نوار پیشرفت انیمیشنی و Status Spinner است.
 
@@ -9,7 +9,11 @@
 - `Console`: توابع `print`، `println`، `write`، تشخیص ترمینال، رنگ ANSI، BBCode-style markup و Rule.
 - قالب‌بندی رشته و عدد با `{}`، عرض، تراز، fill، علامت، صفرگذاری، جداکنندهٔ هزارگان، دقت اعشاری، مبناهای عددی، نماد علمی و درصد.
 - رنگ‌های استاندارد و روشن، رنگ پس‌زمینه و استایل‌های Bold، Dim، Italic، Underline، Reverse و Strike با API سازگار از نظر مفهومی با ColormaCpp.
-- جدول Unicode با تراز ستون‌ها، عنوان، کپشن و رنگ‌بندی.
+- جدول Unicode با محاسبهٔ عرض نمایشی، Wrap سلول‌ها، تراز ستون‌ها، عنوان، کپشن و رنگ مستقل خطوط.
+- `Panel` با عنوان، کادر، عرض، Padding، تراز و رنگ‌بندی.
+- قالب‌بندی تاریخ، زمان و مدت با `std::chrono`.
+- `Console::pause` برای مکث و `Console::clear` برای پاک‌کردن ترمینال تعاملی.
+- امکان تغییر رنگ نوار و Pulse در `Progress`.
 - `Progress`: چند Task، نوار پیشرفت درصدی، انیمیشن pulse برای Task بدون Total، زمان سپری‌شده و به‌روزرسانی زنده در ترمینال.
 - `Status`: Spinner انیمیشنی در ترمینال تعاملی.
 - در خروجی Redirect شده، فایل، Pipe و CI انیمیشن غیرفعال می‌شود. Progress در شروع و پایان Snapshot متنی می‌نویسد و با `refresh()` نیز می‌توان Snapshotهای میانی ثبت کرد؛ Status نیز پیام‌های معمولی در لاگ می‌نویسد.
@@ -83,7 +87,37 @@ target_link_libraries(my_app PRIVATE RichTerm::RichTerm)
 
 ## دامنه و محدودیت‌ها
 
-این پروژه پورت کامل API کتابخانهٔ Python Rich نیست. Markdown کامل، Syntax Highlighting، Tracebackهای پیشرفته، Jupyter، SVG/HTML، سیستم کامل Layout و نمایشگرهای تمام‌صفحه Rich در این نسخه وجود ندارند. محاسبهٔ عرض جدول برای نویسه‌های دو‌ستونهٔ Unicode و Wrap خودکار سلول‌ها نیز هنوز پیاده‌سازی نشده است.
+این پروژه پورت کامل API کتابخانهٔ Python Rich نیست. Markdown کامل، Syntax Highlighting، Tracebackهای پیشرفته، Jupyter، SVG/HTML، سیستم کامل Layout و نمایشگرهای تمام‌صفحه Rich در این نسخه وجود ندارند. محاسبهٔ عرض Unicode با بازه‌های داخلی و فشرده انجام می‌شود و جایگزین کامل پایگاه دادهٔ Unicode یا رفتار اختصاصی تمام ترمینال‌ها نیست. برای محدودکردن عرض و فعال‌کردن Wrap جدول از `Table::set_max_width()` استفاده کنید.
+
+## Panel و تاریخ/زمان
+
+```cpp
+#include <chrono>
+
+richterm::Panel panel("متن داخل پنل در عرض تعیین‌شده می‌شکند.", "گزارش ساخت");
+panel.set_width(42).set_padding(1).set_border_style("bright_blue");
+console.print(panel);
+
+const auto now = std::chrono::system_clock::now();
+console.print("تاریخ: {}", richterm::format_date(now));
+console.print("زمان: {}", richterm::format_time(now));
+console.print("مدت: {}", richterm::format_duration(std::chrono::seconds{3661}));
+```
+
+## مکث، پاک‌کردن ترمینال و رنگ Progress
+
+```cpp
+console.pause(0.5); // seconds
+console.clear();    // فقط برای ترمینال تعاملی
+
+richterm::Progress progress(console);
+progress.set_bar_color(richterm::Color::bright_green);
+progress.set_pulse_color(richterm::Color::bright_cyan);
+```
+
+برای BBCode می‌توان از `[/]` برای بستن آخرین تگ باز استفاده کرد. تابع `Console::escape_markup()` نیز براکت‌های متن ورودی را Escape می‌کند.
+
+مثال‌های مستقل در `examples/` قرار دارند. تصاویر ثابت را در `docs/images/` و GIFهای نمایشی را در `docs/gifs/` قرار دهید.
 
 ## مشارکت
 

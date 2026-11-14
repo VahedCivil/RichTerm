@@ -1,4 +1,4 @@
-# API Reference (0.2.0)
+# API Reference (0.3.0)
 
 ## Headers
 
@@ -8,6 +8,9 @@
 | `<richterm/format.hpp>` | `format`, `format_error`, `format_segments` |
 | `<richterm/style.hpp>` | `Color`, `Style`, `ColorMode`, `TextStyle`, `on`, `colorize` |
 | `<richterm/table.hpp>` | `Table`, `TableColumn`, `Alignment` |
+| `<richterm/panel.hpp>` | `Panel` |
+| `<richterm/datetime.hpp>` | `format_datetime`, `format_date`, `format_time`, `format_duration` |
+| `<richterm/unicode.hpp>` | UTF-8 and terminal-cell width helpers (implementation support) |
 | `<richterm/progress.hpp>` | `Progress`, `ProgressTask`, `TaskId` |
 | `<richterm/status.hpp>` | `Status` |
 | `<richterm/richterm.hpp>` | All public headers and version macros |
@@ -20,6 +23,8 @@
 - `write(...)` is the no-newline equivalent.
 - `print(const Table&)` writes a table.
 - `rule(title)` prints a horizontal rule.
+- `pause(seconds)` or `pause(std::chrono::duration)` pauses execution.
+- `clear()` clears an interactive terminal and does nothing for redirected streams.
 - `is_terminal()` and `supports_live_output()` expose terminal detection.
 - `render_markup(text, base_style)` returns rendered text without adding a newline.
 
@@ -66,3 +71,36 @@ Progress and Status own their worker threads and join them in `stop()` and their
 ## Error behavior
 
 Malformed format strings, incompatible types, missing/extra arguments, invalid specs, table row-size mismatches and invalid progress values throw standard exceptions (`format_error`, `invalid_argument`, or `out_of_range`).
+
+
+## Markup extensions
+
+- `[/]` closes the most recently opened markup tag.
+- `Console::escape_markup(text)` escapes square brackets so input is printed literally.
+
+## Console helpers
+
+- `pause(double seconds)` pauses for a finite, non-negative number of seconds.
+- `pause(std::chrono::duration)` accepts a standard chrono duration.
+- `clear()` clears and homes an interactive terminal; redirected streams are unchanged.
+
+## Table wrapping and line styles
+
+- `set_max_width(width)` constrains the table width and wraps cell contents when needed.
+- `set_line_style(style)` selects the markup style for row separator lines independently of the outer border style.
+
+## Panel
+
+`Panel(content, title)` creates a bordered content block. Use `set_width`, `set_padding`, `set_alignment`, `set_border_style`, `set_title_style`, and `set_content_style` to customize it. `render()` returns markup-capable text, and `Console::print(panel)` writes it.
+
+## Date and time
+
+- `format_datetime(system_clock::time_point, pattern)` formats a timestamp using `std::put_time` directives.
+- `format_date(...)` and `format_time(...)` provide date-only and time-only defaults.
+- `format_duration(std::chrono::duration)` formats elapsed durations as `hours:minutes:seconds` (or `minutes:seconds`).
+
+## Progress colors
+
+- `set_bar_color(Color)` changes the completed portion of determinate bars.
+- `set_pulse_color(Color)` changes the indeterminate pulse glyph.
+

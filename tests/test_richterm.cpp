@@ -1,6 +1,7 @@
 #include <richterm/richterm.hpp>
 
 #include <cmath>
+#include <chrono>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -58,6 +59,19 @@ int main() {
     console.print("{{literal bracket}} [red]red[/red]");
     require(sink.str().find("{literal bracket}") != std::string::npos, "Escaped markup bracket failed");
     require(sink.str().find("\x1b[31mred\x1b[0m") != std::string::npos, "Basic color markup failed");
+    sink.str({}); sink.clear();
+    console.print("[bold]top-level close[/] plain");
+    require(sink.str().find("\x1b[1mtop-level close\x1b[0m plain") != std::string::npos,
+            "Short closing BBCode tag failed");
+    sink.str({}); sink.clear();
+    console.print("[bold][red]nested[/] outer[/]");
+    require(sink.str().find("\x1b[31;1mnested\x1b[0m") != std::string::npos &&
+            sink.str().find("\x1b[1m outer\x1b[0m") != std::string::npos,
+            "Nested short BBCode closing tags failed");
+    sink.str({}); sink.clear();
+    console.print(Console::escape_markup("[red]literal[/red]"));
+    require(sink.str().find("[red]literal[/red]") != std::string::npos &&
+            sink.str().find("\x1b[") == std::string::npos, "Markup escaping helper failed");
 
     // Colorma-style formatting tokens.
     sink.str({}); sink.clear();
@@ -97,9 +111,52 @@ int main() {
     sink.str({}); sink.clear();
     console.rule("Section");
     require(sink.str().find("Section") != std::string::npos, "Console rule rendering failed");
+    sink.str({}); sink.clear();
+    console.clear();
+    require(sink.str().empty(), "Console clear should not emit control sequences to redirected streams");
+    require_throws([&] { console.pause(-0.1); }, "Negative pause duration must throw");
+    require_throws([&] { console.pause(1e100); }, "Out-of-range pause duration must throw");
+    require_throws([&] { console.pause(std::chrono::duration<double>{std::numeric_limits<double>::infinity()}); },
+                   "Infinite chrono pause duration must throw");
     bool table_error = false;
     try { table.add_row("only one cell"); } catch (const std::invalid_argument&) { table_error = true; }
     require(table_error, "Mismatched table row must throw");
+    Table unicode_table;
+    unicode_table.add_column("Name").add_column("Value")
+        .add_row("東京", "界")
+        .add_row("[bold cyan]long text wraps[/bold cyan]", "e\u0301 😀");
+    unicode_table.set_max_width(24).set_line_style("yellow").show_lines();
+    const auto unicode_rendered = unicode_table.render();
+    require(unicode_rendered.find("long text") != std::string::npos, "Wrapped Unicode table content missing");
+    require(detail::display_width("東京") == 4, "East Asian wide-character width failed");
+    require(detail::display_width("[bold]x[/]") == 1, "Matched short closing tag width failed");
+    require(detail::display_width("[/]") == 3, "Unmatched short closing tag must remain visible");
+    require(detail::display_width("e\u0301") == 1, "Combining-mark width failed");
+    require(detail::display_width("👩‍💻") == 2, "Emoji ZWJ sequence width failed");
+    require(detail::display_width("🇩🇪") == 2, "Regional-indicator flag width failed");
+    require(detail::display_width("©️") == 2, "Emoji variation-selector width failed");
+    require(unicode_rendered.find("[yellow]") != std::string::npos, "Table separator line style failed");
+    const auto wrapped_plain = detail::wrap_cell("abcdef", 3);
+    require(wrapped_plain.size() == 2 && wrapped_plain[0] == "abc" && wrapped_plain[1] == "def",
+            "Long-word table cell wrapping failed");
+    const auto wrapped_words = detail::wrap_cell("alpha beta gamma", 10);
+    require(wrapped_words.size() == 2 && wrapped_words[0] == "alpha beta" && wrapped_words[1] == "gamma",
+            "Table word wrapping failed");
+    const auto wrapped_styled = detail::wrap_cell("[bold]abcdef[/bold]", 3);
+    require(wrapped_styled.size() == 2 && wrapped_styled[0].find("[/bold]") != std::string::npos &&
+            wrapped_styled[1].find("[bold]") == 0, "Markup styles must survive table wrapping");
+
+    Panel panel("A panel with content that wraps", "Details");
+    panel.set_width(22).set_padding(1).set_border_style("blue");
+    const auto panel_rendered = panel.render();
+    require(panel_rendered.find("Details") != std::string::npos &&
+            panel_rendered.find("┌") != std::string::npos &&
+            panel_rendered.find("└") != std::string::npos, "Panel rendering failed");
+    const auto empty_panel_lines = detail::split_lines(Panel{}.render());
+    require(empty_panel_lines.size() == 3 &&
+            detail::display_width(empty_panel_lines[0]) == detail::display_width(empty_panel_lines[1]) &&
+            detail::display_width(empty_panel_lines[1]) == detail::display_width(empty_panel_lines[2]),
+            "Empty panel borders and body must have equal terminal widths");
 
     // Progress and Status animate on TTYs, and use predictable snapshots in redirected streams.
     std::ostringstream progress_sink;
@@ -109,6 +166,8 @@ int main() {
     progress.advance(id, 3.0);
     require(progress.tasks().at(id).completed == 5.0, "Progress advance failed");
     require(progress.render().find("50.0%") != std::string::npos, "Progress percentage render failed");
+    progress.set_bar_color(Color::magenta);
+    require(progress.render().find("[magenta]") != std::string::npos, "Progress bar color customization failed");
     progress.start();
     require(progress.active(), "Progress start failed");
     progress.advance(id, 1.0);
@@ -122,6 +181,11 @@ int main() {
                    "Non-finite progress completion must throw");
     const auto empty_task = progress.add_task("No work required", 0.0);
     (void)empty_task;
+    const auto indeterminate_task = progress.add_task("Indeterminate");
+    (void)indeterminate_task;
+    progress.set_pulse_color(Color::yellow);
+    require(progress.render().find("[bold yellow]") != std::string::npos,
+            "Progress pulse color customization failed");
     require(progress.render().find("100.0%") != std::string::npos,
             "Zero-total progress tasks should render as complete");
     progress.stop();
@@ -139,6 +203,14 @@ int main() {
                    "Progress refresh rate must be validated");
     require_throws([&] { Status invalid_status_rate(progress_console, "x", 1001.0); },
                    "Status refresh rate must be validated");
+
+    const auto epoch = std::chrono::system_clock::from_time_t(0);
+    require(format_date(epoch).find("1970") != std::string::npos, "Chrono date formatting failed");
+    require(format_time(epoch).size() == 8, "Chrono time formatting failed");
+    require(format_duration(std::chrono::seconds{3661}) == "1:01:01", "Duration formatting failed");
+    require(format_duration(std::chrono::seconds{-61}) == "-1:01", "Negative duration formatting failed");
+    require_throws([] { (void)format_duration(std::chrono::duration<long double>{
+        std::numeric_limits<long double>::infinity()}); }, "Infinite duration formatting must throw");
 
     std::cout << "All RichTerm tests passed.\n";
     return 0;
